@@ -1,145 +1,175 @@
-# import necessary dependencies
+# deep learning libraries
 import torch
-from torch import nn, optim
+import numpy as np
 from torch.utils.data import DataLoader
-
-# import the writer
 from torch.utils.tensorboard import SummaryWriter
 
-from typing import Dict, Tuple
+# other libraries
+from typing import Optional
 
-from src.utils import calculate_accuracy
 
-
-def train_torch_model(
+@torch.enable_grad()
+def train_step(
     model: torch.nn.Module,
-    train_dataloader: DataLoader,
-    val_dataloader: DataLoader,
-    criterion: nn.Module,
-    optimizer: optim.Optimizer,
-    epochs: int,
-    print_every: int,
-    patience: int,
+    train_data: DataLoader,
+    mean: float,
+    std: float,
+    loss: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
     writer: SummaryWriter,
-    device: str = 'cpu'
-) -> Tuple[Dict[int, float], Dict[int, float]]:
+    epoch: int,
+    device: torch.device,
+) -> None:
     """
-    Train and validate the logistic regression model.
+    This function train the model.
 
     Args:
-        model (torch.nn.Module): An instance of the model to be trained.
-        train_dataloader (DataLoader): DataLoader for the training dataset.
-        val_dataloader (DataLoader): DataLoader for the validation dataset.
-        learning_rate (float): The learning rate for the optimizer.
-        criterion (nn.Module): Loss function to use for training.
-        optimizer (optim.Optimizer): Optimizer to use for training.
-        epochs (int): The number of epochs to train the model.
-        print_every (int): Frequency of epochs to print training and validation loss.
-        patience (int): The number of epochs to wait for improvement on the validation loss before stopping training early.
-        device (str): device where to train the model.
+        model: model to train.
+        train_data: dataloader of train data.
+        mean: mean of the target.
+        std: std of the target.
+        loss: loss function.
+        optimizer: optimizer.
+        writer: writer for tensorboard.
+        epoch: epoch of the training.
+        device: device for running operations.
+    """
+
+    # TODO
+    # this function performs one step of the training loop
+
+    model.train()  # set the model to training mode
+
+    model.to(device)  # move the model to the device
+
+    losses = []  # initialise the list of losses
+
+    for x, y in train_data:
+        x, y = x.to(device), y.to(device)  # move the data to the device
+
+        optimizer.zero_grad()  # zero the gradients
+
+        y_hat = model(x)  # forward pass
+
+        y_hat = y_hat.to(device)  # move the prediction to the device
+
+        y_hat = y_hat * std + mean  # rescale the prediction
+        y = y * std + mean  # rescale the target
+
+        loss_iter = loss(y_hat, y)  # calculate the loss
+
+        loss_iter.backward()  # backpropagation
+
+        optimizer.step()  # update the weights
+
+        losses.append(loss_iter.item())  # store the loss
+
+    print(f"\tAverage train loss epoch {epoch}: ", np.mean(losses))
+    writer.add_scalar("Loss/train", np.mean(losses), epoch)  # log the loss
+
+    return None
+
+
+@torch.no_grad()
+def val_step(
+    model: torch.nn.Module,
+    val_data: DataLoader,
+    mean: float,
+    std: float,
+    loss: torch.nn.Module,
+    scheduler: Optional[torch.optim.lr_scheduler.LRScheduler],
+    writer: SummaryWriter,
+    epoch: int,
+    device: torch.device,
+) -> None:
+    """
+    This function train the model.
+
+    Args:
+        model: model to train.
+        val_data: dataloader of validation data.
+        mean: mean of the target.
+        std: std of the target.
+        loss: loss function.
+        scheduler: scheduler.
+        writer: writer for tensorboard.
+        epoch: epoch of the training.
+        device: device for running operations.
+    """
+
+    # TODO
+
+    # this function performs one step of the validation loop
+
+    model.eval()  # set the model to evaluation mode
+
+    losses = []  # initialise the list of losses
+
+    for x, y in val_data:
+        x, y = x.to(device), y.to(device)  # move the data to the device
+
+        y_hat = model(x)  # forward pass
+
+        y_hat = y_hat * std + mean  # rescale the prediction
+
+        y = y * std + mean  # rescale the target
+
+        loss_iter = loss(y_hat, y)  # calculate the loss
+
+        losses.append(loss_iter.item())  # store the loss
+
+    print(f"\tAverage val loss epoch {epoch}: ", np.mean(losses))
+    writer.add_scalar("Loss/val", np.mean(losses), epoch)  # log the loss
+
+    if scheduler is not None:  # if a scheduler is provided
+        scheduler.step(np.mean(losses))  # update the learning rate
+
+    return None
+
+
+@torch.no_grad()
+def t_step(
+    model: torch.nn.Module,
+    test_data: DataLoader,
+    mean: float,
+    std: float,
+    device: torch.device,
+) -> float:
+    """
+    This function tests the model.
+
+    Args:
+        model: model to make predcitions.
+        test_data: dataset for testing.
+        mean: mean of the target.
+        std: std of the target.
+        device: device for running operations.
 
     Returns:
-        Tuple[Dict[int, float],Dict[int, float]]: Dictionary of accuracies at each `print_every` interval for the training and validation datasets.
+        mae of the test data.
     """
-    # TODO: Initialize dictionaries to store training and validation accuracies
-    train_accuracies: Dict[int, float] = {}  # epoch: accuracy
-    val_accuracies: Dict[int, float] = {}  # epoch: accuracy
 
-    # TODO: Initialize variables for Early Stopping
-    best_loss: float = float('inf')
-    epochs_no_improve: int = 0
+    # TODO
 
-    # TODO: Move the model to the specified device (CPU or GPU)
-    model.to(device)
+    # this function tests the model
 
-    # TODO: Implement the training loop over the specified number of epochs
-    for epoch in range(epochs):
-        # TODO: Set the model to training mode
-        model.train()
+    model.eval()  # set the model to evaluation mode
+    model.to(device)  # move the model to the device
 
-        total_loss: float = 0.0
+    loss_fn = torch.nn.L1Loss()
 
-        # TODO: Implement the loop for training over each batch in the training dataloader
-        for features, labels, text_len in train_dataloader:
+    losses = []  # initialise the list of losses
 
-            # TODO: Move features and labels to the specified device
-            features, labels = features.to(device), labels.to(device)
+    for x, y in test_data:
+        x, y = x.to(device), y.to(device)  # move the data to the device
 
-            # TODO: Clear the gradients
-            optimizer.zero_grad()
+        y_hat = model(x)
 
-            # TODO: Forward pass (compute the model output)
-            output = model(features, text_len)
+        y_hat = y_hat * std + mean
+        y = y * std + mean
 
-            # TODO: Compute the loss
-            # cast labels to float to avoid a data type mismatch error
-            loss = criterion(output, labels.float())
+        loss_iter = loss_fn(y_hat, y)
 
-            # TODO: Backward pass (compute the gradients)
-            loss.backward()
+        losses.append(loss_iter.item())
 
-            # TODO: Update model parameters
-            optimizer.step()
-
-            # TODO: Accumulate the loss
-            total_loss += loss.item()
-
-        # TODO: Implement the evaluation phase
-        model.eval()
-        val_loss: float = 0.0
-
-        with torch.no_grad():
-            # TODO: Loop over the validation dataloader
-            for features, labels, text_len in val_dataloader:
-
-                # TODO: Move features and labels to the specified device
-                features, labels = features.to(device), labels.to(device)
-
-                # TODO: Forward pass (compute the model output)
-                output = model(features, text_len)
-
-                # TODO: Compute the loss
-                loss = criterion(output, labels.float())
-
-                # TODO: Accumulate validation loss
-                val_loss += loss.item()
-
-        # TODO: Calculate training and validation accuracy
-        train_accuracy = calculate_accuracy(
-            model, train_dataloader, device=device)
-        val_accuracy = calculate_accuracy(
-            model, val_dataloader, device=device)
-
-        # TODO: Store accuracies
-        train_accuracies[epoch] = train_accuracy
-        val_accuracies[epoch] = val_accuracy
-
-        # write the training loss to tensorboard
-        writer.add_scalar("Loss/train", total_loss /
-                          len(train_dataloader), epoch)
-        writer.add_scalar("Loss/val", val_loss / len(val_dataloader), epoch)
-        writer.add_scalar("Accuracy/train", train_accuracy, epoch)
-        writer.add_scalar("Accuracy/val", val_accuracy, epoch)
-
-        # TODO: Print training and validation results every 'print_every' epochs
-        if epoch % print_every == 0 or epoch == epochs - 1:
-            # TODO: Calculate and print average losses and accuracies
-            avg_train_loss = total_loss / len(train_dataloader)
-            avg_val_loss = val_loss / len(val_dataloader)
-            print(f"Epoch {epoch} -> \
-                    Train Loss: {avg_train_loss:.4f}, \
-                    Val Loss: {avg_val_loss:.4f}, \
-                    Train Acc: {train_accuracy:.4f}, \
-                    Val Acc: {val_accuracy:.4f}")
-
-        # TODO: Implement Early Stopping
-        if val_loss < best_loss:
-            best_loss = val_loss
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-            if epochs_no_improve == patience:
-                print(f"Early stopping at epoch {epoch}")
-                break
-
-    return train_accuracies, val_accuracies
+    return np.mean(losses)
