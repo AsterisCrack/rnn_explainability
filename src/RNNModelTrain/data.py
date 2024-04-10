@@ -1,278 +1,233 @@
-# deep learning libraries
+# import necessary dependencies
 import torch
-import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
 
-# other libraries
-import os
+from gensim.models.keyedvectors import load_word2vec_format
+
+import pandas as pd
+
+import re
+
+from typing import List, Tuple, Any
 
 
-class ElectricDataset(Dataset):
+def tokenize_tweet(tweet: str) -> List[str]:
     """
-    This class is the dataset loading the data.
+      Tokenizes a given tweet by splitting the text into words, and doing any cleaning, replacing or normalization deemed useful
 
-    Attr:
-        dataset: tensor with all the prices data. Dimensions:
-            [number of days, 24].
-        past_days: length used for predicting the next value.
+      Args:
+          tweet (str): The tweet text to be tokenized.
+
+      Returns:
+          list[str]: A list of strings, representing the tokenized components of the tweet.
+    """
+    # TODO: Complete the tokenize_tweet function
+    # replace the usernas with a specific token
+    global USR_MENTION_TOKEN
+    global URL_TOKEN
+    USR_MENTION_TOKEN = "<!USR_MENTION>"
+    URL_TOKEN = "<!URL>"
+    tweet = re.sub(r'@\w+', USR_MENTION_TOKEN, tweet)
+
+    # replace the urls with a specific token
+    tweet = re.sub(r'http\S+', URL_TOKEN, tweet)
+
+    # remove the hashtags from the tweet
+    tweet = re.sub(r'#\w+', '', tweet)
+
+    return tweet.split()
+
+
+def generate_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
+    """
+    Load data from a specified file path, extract texts and targets, and tokenize the texts using the tokenize_tweet function.
+
+    Parameters:
+    file_path (str): The path to the dataset file.
+
+    Returns:
+    Tuple[List[str], List[int]]: Lists of texts and corresponding targets.
+    """
+    try:
+        # TODO: Read the corresponding csv
+        data: pd.DataFrame = pd.read_csv(file_path)
+
+        # TODO: Obtain the text column from data
+        texts: List[str] = data['text'].tolist()
+
+        # TODO: Obtain targets, 0 for human and 1 for bot
+        # replace the target column with a binary representation
+        data['tag'] = data['account.type'].replace('human', 0)
+        data['tag'] = data['tag'].replace('bot', 1)
+        targets: List[int] = data['tag'].tolist()
+
+        # TODO: Return tokenized texts, and targets
+        return [tokenize_tweet(text) for text in texts], targets
+
+    except FileNotFoundError:
+        print(f"{file_path} not found. Please check the file path.")
+
+
+class TweepFakeDataset(Dataset):
+    """
+    A PyTorch Dataset for the TweepFake dataset.
+
+    Attributes:
+        texts (List[List[str]]): List of tweets tokens.
+        targets (List[str]): List of target labels.
     """
 
-    dataset: torch.Tensor
-    past_days: int
-
-    def __init__(self, dataset: pd.DataFrame, past_days: int) -> None:
+    def __init__(self,
+                 texts: List[List[str]],
+                 targets: List[int]
+                 ):
         """
-        Constructor of ElectricDataset.
+        Initializes the TweepFakeDataset with the given file path.
 
         Args:
-            dataset: dataset in dataframe format. It has three columns
-                (price, feature 1, feature 2) and the index is
-                Timedelta format.
-            past_days: number of past days to use for the
-                prediction.
+            texts (List[List[str]]): List of tweets tokens.
+            targets (List[str]): List of target labels.
         """
-
-        # TODO
-        self.dataset = torch.tensor(
-            dataset["Price"].values, dtype=torch.float64)
-        self.dataset = self.dataset.view(-1, 24)
-        self.past_days = past_days
+        # TODO: Complete the init function
+        # initialise the super class
+        super().__init__()
+        self.texts = texts
+        self.targets = targets
+        self._len = len(self.texts)
 
     def __len__(self) -> int:
-        """
-        This method returns the length of the dataset.
+        """Returns the length of the dataset."""
+        # TODO: Complete the len function
+        return self._len  # VALID IF WE DONT UPDATE THE DATASET, OTHERWISE WOULD NEED TO IMPLEMENT AN _update_len METHOD
 
-        Returns:
-            number of days in the dataset.
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-
-        # TODO
-        return len(self.dataset) - self.past_days
-
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        This method returns an element from the dataset based on the
-        index. It only has to return the prices.
+        Returns the embedded tensor and target for the text at the specified index.
 
         Args:
-            index: index of the element.
+            idx (int): Index of the item.
 
         Returns:
-            past values, starting to collecting those in the zero
-                index. Dimensions: [sequence length, 24].
-            current values. Start to collect those in the index
-                self.sequence. Dimensions: [24].
+            Tuple[List[str], List[int]]: A tuple containing the BoW vector and the target label.
         """
+        # TODO: Complete the getitem function
 
-        # TODO
-        past = self.dataset[index: index + self.past_days]
-        current = self.dataset[index + self.past_days]
-
-        return past, current
+        return self.texts[idx], self.targets[idx]
 
 
 def load_data(
-    save_path: str,
-    past_days: int = 7,
-    batch_size: int = 64,
-    shuffle: bool = True,
-    drop_last: bool = False,
-    num_workers: int = 0,
-) -> tuple[DataLoader, DataLoader, DataLoader, float, float]:
+    save_path: str = "./NLP_Data/data",
+    batch_size: int = 64
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    This method returns Dataloaders of the chosen dataset. Use  the
-    last 42 weeks of the training dataframe for the validation set.
+    Load the TweepFake dataset from the specified path, and split it into training, validation, and test sets.
 
     Args:
-        save_path: path to save the data.
-        past_days: number of past days to use for the prediction.
-        batch_size: size of batches that wil be created.
-        shuffle: indicator of shuffle the data. Defaults to true.
-        drop_last: indicator to drop the last batch since it is not
-            full. Defaults to False.
-        num_workers: num workers for loading the data. Defaults to 0.
+        save_path (str): The path to save the dataset.
 
     Returns:
-        train dataloader.
-        val dataloader.
-        test dataloader.
-        means of price.
-        stds of price.
+        Tuple[DataLoader, DataLoader, DataLoader]: DataLoaders for the training, validation, and test sets.
     """
 
-    # TODO
-    df_train, df_test = download_data(save_path)
+    # get the initial data
+    train_texts, train_targets = generate_text_target_pairs(
+        save_path + "/train.csv")
+    val_texts, val_targets = generate_text_target_pairs(
+        save_path + "/validation.csv")
+    ts_texts, ts_targets = generate_text_target_pairs(save_path + "/test.csv")
 
-    # Compute mean and std of the price
-    mean_price = df_train["Price"].mean()
-    std_price = df_train["Price"].std()
+    # create the datasets
+    train_dataset = TweepFakeDataset(train_texts, train_targets)
+    val_dataset = TweepFakeDataset(val_texts, val_targets)
+    test_dataset = TweepFakeDataset(ts_texts, ts_targets)
 
-    # Concatenate train and validation sets
-    validation_data: pd.DataFrame = df_train.iloc[-43 * 7 * 24:]
-    train_data: pd.DataFrame = df_train.iloc[:-42 * 7 * 24]
-    test_data = pd.concat([validation_data.iloc[-7 * 24:], df_test])
+    #! CREATE THE GLOBAL W2V MODEL
+    global w2v_model  # ! THIS IS NOT THE BEST PRACTICE, BUT IT IS USED HERE FOR SIMPLICITY
+    w2v_model = load_word2vec_format(
+        "./NLP_Data/embeddings/GoogleNews-vectors-negative300.bin.gz", binary=True)
 
-    # Normalize
-    train_data["Price"] = (train_data["Price"] - mean_price) / std_price
-    validation_data["Price"] = (
-        validation_data["Price"] - mean_price) / std_price
-    test_data["Price"] = (test_data["Price"] - mean_price) / std_price
+    # create the dataloaders
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, collate_fn=collate_fn)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, collate_fn=collate_fn)
 
-    train_dataset: ElectricDataset = ElectricDataset(train_data, past_days)
-    val_dataset: ElectricDataset = ElectricDataset(validation_data, past_days)
-    test_dataset: ElectricDataset = ElectricDataset(test_data, past_days)
-
-    train_dataloader: DataLoader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=drop_last,
-        num_workers=num_workers
-    )
-    val_dataloader: DataLoader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=drop_last,
-        num_workers=num_workers
-    )
-    test_dataloader: DataLoader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=drop_last,
-        num_workers=num_workers
-    )
-
-    return train_dataloader, val_dataloader, test_dataloader, mean_price, std_price
+    return train_dataloader, val_dataloader, test_dataloader
 
 
-def download_data(
-    path, years_test=2, begin_test_date=None, end_test_date=None
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def collate_fn(batch: List[Tuple[List[str], int]],
+               ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Function to download data from day-ahead electricity markets.
+    Prepares and returns a batch for training/testing in a torch model.
+
+    This function sorts the batch by the length of the text sequences in descending order,
+    tokenizes the text using a pre-defined word-to-index mapping, pads the sequences to have
+    uniform length, and converts labels to tensor.
 
     Args:
-        path: path to save the data
-        years_test: year for the test data. Defaults to 2.
-        begin_test_date: beginning test date. Defaults to None.
-        end_test_date: end test date. Defaults to None.
-
-    Raises:
-        IOError: Error when reading dataset with pandas.
-        Exception: Starting date for test dataset should be midnight.
-        Exception: End date for test dataset should be at 0h or 23h.
+        batch (List[Tuple[List[str], int]]): A list of tuples, where each tuple contains a
+                                             list of words (representing a text) and an integer label.
 
     Returns:
-        training dataset.
-        testing dataset.
-
-    Example:
-        >>> from epftoolbox.data import read_data
-        >>> df_train, df_test = read_data(path='.', dataset='PJM',
-                                            begin_test_date='01-01-2016',
-        ...                                 end_test_date='01-02-2016')
-        Test datasets: 2016-01-01 00:00:00 - 2016-02-01 23:00:00
-        >>> df_train.tail()
-                                Price  Exogenous 1  Exogenous 2
-        Date
-        2015-12-31 19:00:00  29.513832     100700.0      13015.0
-        2015-12-31 20:00:00  28.440134      99832.0      12858.0
-        2015-12-31 21:00:00  26.701700      97033.0      12626.0
-        2015-12-31 22:00:00  23.262253      92022.0      12176.0
-        2015-12-31 23:00:00  22.262431      86295.0      11434.0
-        >>> df_test.head()
-                                Price  Exogenous 1  Exogenous 2
-        Date
-        2016-01-01 00:00:00  20.341321      76840.0      10406.0
-        2016-01-01 01:00:00  19.462741      74819.0      10075.0
-        2016-01-01 02:00:00  17.172706      73182.0       9795.0
-        2016-01-01 03:00:00  16.963876      72300.0       9632.0
-        2016-01-01 04:00:00  17.403722      72535.0       9566.0
-        >>> df_test.tail()
-                                Price  Exogenous 1  Exogenous 2
-        Date
-        2016-02-01 19:00:00  28.056729      99400.0      12680.0
-        2016-02-01 20:00:00  26.916456      97553.0      12495.0
-        2016-02-01 21:00:00  24.041505      93983.0      12267.0
-        2016-02-01 22:00:00  22.044896      88535.0      11747.0
-        2016-02-01 23:00:00  20.593339      82900.0      10974.0
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A tuple containing three elements:
+            - texts_padded (torch.Tensor): A tensor of padded word indices of the text.
+            - labels (torch.Tensor): A tensor of labels.
+            - lengths (torch.Tensor): A tensor representing the lengths of each text sequence.
     """
+    # get the w2v model from the global scope
+    global w2v_model
 
-    dataset: str = "NP"
+    # TODO: Sort the batch by the length of text sequences in descending order
+    batch = sorted(batch, key=lambda x: len(x[0]), reverse=True)
 
-    # Checking if provided directory exist and if not create it
-    if not os.path.exists(path):
-        os.makedirs(path)
+    # TODO: Unzip texts and labels from the sorted batch
+    texts: List[str]
+    labels: List[int]
+    texts, labels = zip(*batch)
 
-    # If dataset is one of the existing open-access ones,
-    # they are imported if they exist locally or download from
-    # the repository if they do not
-    if dataset in ["PJM", "NP", "FR", "BE", "DE"]:
-        file_path = os.path.join(path, dataset + ".csv")
+    # convert the elements of the labels list to int
+    labels = list(labels)
+    labels = [int(label) for label in labels]
 
-        # The first time this function is called, the datasets
-        # are downloaded and saved in a local folder
-        # After the first called they are imported from the local
-        # folder
-        if os.path.exists(file_path):
-            data = pd.read_csv(file_path, index_col=0)
-        else:
-            url_dir = "https://zenodo.org/records/4624805/files/"
-            data = pd.read_csv(url_dir + dataset + ".csv", index_col=0)
-            data.to_csv(file_path)
-    else:
-        try:
-            file_path = os.path.join(path, dataset + ".csv")
-            data = pd.read_csv(file_path, index_col=0)
-        except IOError as e:
-            raise IOError("%s: %s" % (path, e.strerror))
+    # TODO: Convert texts to indices using the word2idx function and w2v_model
+    texts_indx: List[torch.Tensor] = [
+        word2idx(w2v_model, tweet) for tweet in texts]
 
-    data.index = pd.to_datetime(data.index)
+    # TODO: Calculate the lengths of each element of texts_indx.
+    # The minimum length shall be 1, in order to avoid later problems when training the RNN
+    lengths: List[torch.Tensor] = [max(len(tweet), 1) for tweet in texts_indx]
 
-    columns = ["Price"]
-    n_exogeneous_inputs = len(data.columns) - 1
+    # TODO: Pad the text sequences to have uniform length
+    texts_padded: torch.Tensor = pad_sequence(texts_indx, batch_first=True)
 
-    for n_ex in range(1, n_exogeneous_inputs + 1):
-        columns.append("Exogenous " + str(n_ex))
+    # TODO: Convert labels to tensor
+    labels: torch.Tensor = torch.tensor(labels)
 
-    data.columns = columns
+    return texts_padded, labels, lengths
 
-    # The training and test datasets can be defined by providing a number
-    # of years for testing
-    # or by providing the init and end date of the test period
-    if begin_test_date is None and end_test_date is None:
-        number_datapoints = len(data.index)
-        number_training_datapoints = number_datapoints - 24 * 364 * years_test
 
-        # We consider that a year is 52 weeks (364 days) instead of the traditional 365
-        df_train = data.loc[
-            : data.index[0] + pd.Timedelta(hours=number_training_datapoints - 1), :
-        ]
-        df_test = data.loc[
-            data.index[0] + pd.Timedelta(hours=number_training_datapoints):, :
-        ]
+def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
+    """
+    Converts a tweet to a list of word indices based on an embedding model.
 
-    else:
-        try:
-            begin_test_date = pd.to_datetime(begin_test_date, dayfirst=True)
-            end_test_date = pd.to_datetime(end_test_date, dayfirst=True)
-        except ValueError:
-            print("Provided values for dates are not valid")
+    This function iterates through each word in the tweet and retrieves its corresponding index
+    from the embedding model's vocabulary. If a word is not present in the model's vocabulary,
+    it is skipped.
 
-        if begin_test_date.hour != 0:
-            raise Exception(
-                "Starting date for test dataset should be midnight")
-        if end_test_date.hour != 23:
-            if end_test_date.hour == 0:
-                end_test_date = end_test_date + pd.Timedelta(hours=23)
-            else:
-                raise Exception(
-                    "End date for test dataset should be at 0h or 23h")
+    Args:
+        embedding_model (Any): The embedding model with a 'key_to_index' attribute, which maps words to their indices.
+        tweet (List[str]): A list of words representing the tweet.
 
-        print("Test datasets: {} - {}".format(begin_test_date, end_test_date))
-        df_train = data.loc[: begin_test_date - pd.Timedelta(hours=1), :]
-        df_test = data.loc[begin_test_date:end_test_date, :]
+    Returns:
+        torch.Tensor: A tensor of word indices corresponding to the words in the tweet.
+    """
+    # TODO: Complete the function according to the requirements
 
-    return df_train, df_test
+    # get the indices of the words in the tweet
+    indices = [embedding_model.key_to_index[word]
+               for word in tweet if word in embedding_model.key_to_index]
+
+    return torch.tensor(indices)
