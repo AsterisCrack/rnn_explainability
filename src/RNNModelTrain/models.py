@@ -1,24 +1,33 @@
-# deep learning libraries
 import torch
 
 
 class RNNModel(torch.nn.Module):
-    def __init__(self, hidden_size: int) -> None:
+    def __init__(self, embedding_weights: torch.Tensor, hidden_size: int, num_layers: int) -> None:
         """
         This method is the constructor of the class.
 
         Args:
+            embedding_weights: weights for the embedding layer
             hidden_size: hidden size of the RNN layers
+            num_layers: number of RNN layers
+            device: device to run the model
         """
 
         # TODO
         super().__init__()
-        torch.set_default_dtype(torch.double)  # set dtype to float64
+        torch.set_default_dtype(torch.float32)  # set dtype to float32
 
-        self.lstm = torch.nn.RNN(24, hidden_size, batch_first=True).cuda()
-        self.fc = torch.nn.Linear(hidden_size, 24).cuda()
+        embedding_dim = embedding_weights.shape[1]
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        self.embedding = torch.nn.Embedding.from_pretrained(
+            embedding_weights)
+
+        self.rnn = torch.nn.RNN(
+            embedding_dim, hidden_size, num_layers, batch_first=True)
+
+        self.fc = torch.nn.Linear(hidden_size, 1)
+
+    def forward(self, inputs: torch.Tensor, text_lengths: torch.Tensor) -> torch.Tensor:
         """
         This method is the forward pass of the model.
 
@@ -29,17 +38,13 @@ class RNNModel(torch.nn.Module):
             output tensor. Dimensions: [batch, 24].
         """
 
-        batch_size = inputs.size(0)
-        # sequence = inputs.size(1)
+        embedded: torch.Tensor = self.embedding(inputs)
 
-        hidden_size = self.lstm.hidden_size
+        packed_embedded: torch.nn.utils.rnn.PackedSequence = torch.nn.utils.rnn.pack_padded_sequence(
+            embedded, text_lengths, batch_first=True, enforce_sorted=False)
 
-        """ IMOPRTANT TO SEND INITIAL STATES TO DEVICE """
-        h0 = torch.zeros(1, batch_size, hidden_size,
-                         dtype=torch.double).cuda()  # dtype=torch.float64
+        packed_output, hidden = self.rnn(packed_embedded)
 
-        lstm_output, _ = self.rnn(inputs, (h0,))
+        hidden: torch.Tensor = hidden[-1]
 
-        output = self.fc(lstm_output[:, -1, :])
-
-        return output
+        return self.fc(hidden).squeeze(1)
