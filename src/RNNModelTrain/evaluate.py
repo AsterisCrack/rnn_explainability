@@ -7,9 +7,9 @@ from torch.jit import RecursiveScriptModule
 from typing import Final
 
 # own modules
-from src.data import load_data
-from src.utils import set_seed
-from src.train_functions import t_step
+from src.RNNModelTrain.data import load_data
+from src.RNNModelTrain.utils import set_seed
+from src.RNNModelTrain.train_functions import t_step
 
 # static variables
 DATA_PATH: Final[str] = "data"

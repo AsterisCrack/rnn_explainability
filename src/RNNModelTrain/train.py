@@ -8,10 +8,10 @@ from torch.utils.tensorboard import SummaryWriter
 from typing import Final
 
 # own modules
-from src.data import load_data
-from src.models import RNNModel
-from src.train_functions import train_step, val_step
-from src.utils import set_seed, save_model
+from src.RNNModelTrain.data import load_data
+from src.RNNModelTrain.models import RNNModel
+from src.RNNModelTrain.train_functions import train_step, val_step
+from src.RNNModelTrain.utils import set_seed, save_model
 
 # static variables
 DATA_PATH: Final[str] = "data"
