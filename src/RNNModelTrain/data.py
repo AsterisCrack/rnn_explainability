@@ -1,31 +1,56 @@
-# import necessary dependencies
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 
 from gensim.models.keyedvectors import load_word2vec_format
 
-import pandas as pd
-
 import re
 
-from typing import List, Tuple, Any
+import string
+
+import pandas as pd
+
+
+from typing import List, Tuple
+
+
+def tokenize_sentence(input_string: str) -> List[str]:
+    def remove_punctuations(input_col):
+        """To remove all the punctuations present in the text.Input the text column"""
+        table = str.maketrans("", "", string.punctuation)
+        return input_col.translate(table)
+
+    input_string = remove_punctuations(input_string)
+    input_string = re.sub(r"[^A-Za-z0-9(),.!?\'`\-\"]", " ", input_string)
+    input_string = re.sub(r"\'s", " 's", input_string)
+    input_string = re.sub(r"\'ve", " 've", input_string)
+    input_string = re.sub(r"n\'t", " n't", input_string)
+    input_string = re.sub(r"\'re", " 're", input_string)
+    input_string = re.sub(r"\'d", " 'd", input_string)
+    input_string = re.sub(r"\'ll", " 'll", input_string)
+    input_string = re.sub(r"\.", " . ", input_string)
+    input_string = re.sub(r",", " , ", input_string)
+    input_string = re.sub(r"!", " ! ", input_string)
+    input_string = re.sub(r"\?", " ? ", input_string)
+    input_string = re.sub(r"\(", " ( ", input_string)
+    input_string = re.sub(r"\)", " ) ", input_string)
+    input_string = re.sub(r"\-", " - ", input_string)
+    input_string = re.sub(r"\"", ' " ', input_string)
+    # We may have introduced double spaces, so collapse these down
+    input_string = re.sub(r"\s{2,}", " ", input_string)
+    return list(filter(lambda x: len(x) > 0, input_string.split(" ")))
 
 
 def tokenize_tweet(tweet: str) -> List[str]:
     """
-      Tokenizes a given tweet by splitting the text into words, and doing any cleaning, replacing or normalization deemed useful
+    Tokenizes a given tweet by splitting the text into words, and doing any cleaning, replacing or normalization deemed useful
 
-      Args:
-          tweet (str): The tweet text to be tokenized.
+    Args:
+        tweet (str): The tweet text to be tokenized.
 
-      Returns:
-          list[str]: A list of strings, representing the tokenized components of the tweet.
+    Returns:
+        List[str]: A list of strings, representing the tokenized components of the tweet.
     """
-    # TODO: Complete the tokenize_tweet function
-    # replace the usernas with a specific token
-    global USR_MENTION_TOKEN
-    global URL_TOKEN
     USR_MENTION_TOKEN = "<!USR_MENTION>"
     URL_TOKEN = "<!URL>"
     tweet = re.sub(r'@\w+', USR_MENTION_TOKEN, tweet)
@@ -39,7 +64,35 @@ def tokenize_tweet(tweet: str) -> List[str]:
     return tweet.split()
 
 
-def generate_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
+def generate_review_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
+    """
+    Generate a list of tokenized reviews and a list of target labels from the given file.
+
+    Args:
+        file_path (str): The path to the file.
+
+    Returns:
+        Tuple[ List[List[str]], List[int] ]: A tuple containing the list of tokenized reviews and the list of target labels.
+    """
+    texts: List[List[str]] = []
+    targets: List[int] = []
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            split_line = line.strip().split("\t")
+
+            targets.append(int(split_line[-1]))
+
+            # Join the words back together
+            sentence = " ".join(split_line[:-1])
+            sentence = tokenize_sentence(sentence)
+
+            texts.append(sentence)
+
+    return texts, targets
+
+
+def generate_tweet_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
     """
     Load data from a specified file path, extract texts and targets, and tokenize the texts using the tokenize_tweet function.
 
@@ -69,168 +122,200 @@ def generate_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[in
         print(f"{file_path} not found. Please check the file path.")
 
 
-class TweepFakeDataset(Dataset):
+class TextClassificationDataset(Dataset):
     """
-    A PyTorch Dataset for the TweepFake dataset.
+    A PyTorch Dataset class for text classification tasks.
 
     Attributes:
-        texts (List[List[str]]): List of tweets tokens.
-        targets (List[str]): List of target labels.
+        texts (List[List[str]]): List of the tokenized texts.
+        targets (List[str]): List of the target labels.
     """
 
-    def __init__(self,
-                 texts: List[List[str]],
-                 targets: List[int]
-                 ):
+    def __init__(self, texts: List[List[str]], targets: List[str]) -> None:
         """
-        Initializes the TweepFakeDataset with the given file path.
+        Initializes the TextClassificationDataset with the given texts and targets.
 
         Args:
-            texts (List[List[str]]): List of tweets tokens.
+            texts (List[List[str]]): List of tokenized texts.
             targets (List[str]): List of target labels.
         """
-        # TODO: Complete the init function
-        # initialise the super class
         super().__init__()
         self.texts = texts
         self.targets = targets
         self._len = len(self.texts)
 
     def __len__(self) -> int:
-        """Returns the length of the dataset."""
-        # TODO: Complete the len function
-        return self._len  # VALID IF WE DONT UPDATE THE DATASET, OTHERWISE WOULD NEED TO IMPLEMENT AN _update_len METHOD
-
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Returns the embedded tensor and target for the text at the specified index.
-
-        Args:
-            idx (int): Index of the item.
+        Returns the length of the dataset.
 
         Returns:
-            Tuple[List[str], List[int]]: A tuple containing the BoW vector and the target label.
+            int: Length of the dataset.
         """
-        # TODO: Complete the getitem function
+        return self._len
 
-        return self.texts[idx], self.targets[idx]
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns the item at the given index.
+
+        Args:
+            index (int): Index of the item.
+
+        Returns:
+            Tuple[List[str], str]: Tuple of the text and the target label.
+        """
+        return self.texts[index], self.targets[index]
+
+
+def generate_datasets(
+    save_path: str = "./NLP_Data/data",
+    dataset_name: str = "IMDB"
+) -> Tuple[Dataset, Dataset, Dataset]:
+    """
+    Generate the training, validation, and test datasets for the specified dataset.
+
+    Args:
+        dataset_name (str, optional): Database name. Defaults to "IMDB".
+            * "IMDB": IMDB movie review dataset.
+            * "TweepFake": TweepFake dataset.
+
+    Returns:
+        Tuple[Dataset, Dataset, Dataset]: train, validation and test datasets.
+    """
+    if not dataset_name in ["IMDB", "TweepFake"]:
+        raise ValueError(
+            "Invalid dataset name. Please choose from 'IMDB' or 'TweepFake'.")
+
+    if dataset_name == "IMDB":
+        train_val_texts, train_val_targets = generate_review_text_target_pairs(
+            save_path + "/train.txt")
+
+        split_point = int(len(train_val_texts) * 0.8)
+
+        # Split the training set into training and validation sets
+        train_texts, val_texts = train_val_texts[:
+                                                 split_point], train_val_texts[split_point:]
+        train_targets, val_targets = train_val_targets[:
+                                                       split_point], train_val_targets[split_point:]
+
+        test_texts, test_targets = generate_review_text_target_pairs(
+            save_path + "/test.txt")
+
+    if dataset_name == "TweepFake":
+        train_texts, train_targets = generate_tweet_text_target_pairs(
+            save_path + "/train.csv")
+        val_texts, val_targets = generate_tweet_text_target_pairs(
+            save_path + "/validation.csv")
+        test_texts, test_targets = generate_tweet_text_target_pairs(
+            save_path + "/test.csv")
+
+    # create the datasets
+    train_dataset = TextClassificationDataset(train_texts, train_targets)
+    val_dataset = TextClassificationDataset(val_texts, val_targets)
+    test_dataset = TextClassificationDataset(test_texts, test_targets)
+
+    return train_dataset, val_dataset, test_dataset
 
 
 def load_data(
     save_path: str = "./NLP_Data/data",
+    dataset_name: str = "IMDB",
     batch_size: int = 64
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Load the TweepFake dataset from the specified path, and split it into training, validation, and test sets.
+    Load the IMDBMovieReview dataset from the specified path, and split it into training, validation, and test sets.
 
     Args:
         save_path (str): The path to save the dataset.
+
 
     Returns:
         Tuple[DataLoader, DataLoader, DataLoader]: DataLoaders for the training, validation, and test sets.
     """
 
-    # get the initial data
-    train_texts, train_targets = generate_text_target_pairs(
-        save_path + "/train.csv")
-    val_texts, val_targets = generate_text_target_pairs(
-        save_path + "/validation.csv")
-    ts_texts, ts_targets = generate_text_target_pairs(save_path + "/test.csv")
+    train_dataset: Dataset
+    val_dataset: Dataset
+    test_dataset: Dataset
+    (
+        train_dataset,
+        val_dataset,
+        test_dataset
+    ) = generate_datasets(save_path=save_path, dataset_name=dataset_name)
 
-    # create the datasets
-    train_dataset = TweepFakeDataset(train_texts, train_targets)
-    val_dataset = TweepFakeDataset(val_texts, val_targets)
-    test_dataset = TweepFakeDataset(ts_texts, ts_targets)
-
-    #! CREATE THE GLOBAL W2V MODEL
-    global w2v_model  # ! THIS IS NOT THE BEST PRACTICE, BUT IT IS USED HERE FOR SIMPLICITY
+    # load the embeddings
+    global w2v_model
     w2v_model = load_word2vec_format(
         "./NLP_Data/embeddings/GoogleNews-vectors-negative300.bin.gz", binary=True)
 
-    # create the dataloaders
-    train_dataloader = DataLoader(
+    # generate the dataloaders
+    train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_dataloader = DataLoader(
+    val_loader = DataLoader(
         val_dataset, batch_size=batch_size, collate_fn=collate_fn)
-    test_dataloader = DataLoader(
+    test_loader = DataLoader(
         test_dataset, batch_size=batch_size, collate_fn=collate_fn)
 
-    return train_dataloader, val_dataloader, test_dataloader
+    return train_loader, val_loader, test_loader
 
 
-def collate_fn(batch: List[Tuple[List[str], int]],
-               ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Prepares and returns a batch for training/testing in a torch model.
+def word2idx(embedding_model, review: List[str]) -> torch.Tensor:
+    """ 
+    Converts a movie review to a list of word indices based on an embedding model.
 
-    This function sorts the batch by the length of the text sequences in descending order,
-    tokenizes the text using a pre-defined word-to-index mapping, pads the sequences to have
-    uniform length, and converts labels to tensor.
-
-    Args:
-        batch (List[Tuple[List[str], int]]): A list of tuples, where each tuple contains a
-                                             list of words (representing a text) and an integer label.
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: A tuple containing three elements:
-            - texts_padded (torch.Tensor): A tensor of padded word indices of the text.
-            - labels (torch.Tensor): A tensor of labels.
-            - lengths (torch.Tensor): A tensor representing the lengths of each text sequence.
-    """
-    # get the w2v model from the global scope
-    global w2v_model
-
-    # TODO: Sort the batch by the length of text sequences in descending order
-    batch = sorted(batch, key=lambda x: len(x[0]), reverse=True)
-
-    # TODO: Unzip texts and labels from the sorted batch
-    texts: List[str]
-    labels: List[int]
-    texts, labels = zip(*batch)
-
-    # convert the elements of the labels list to int
-    labels = list(labels)
-    labels = [int(label) for label in labels]
-
-    # TODO: Convert texts to indices using the word2idx function and w2v_model
-    texts_indx: List[torch.Tensor] = [
-        word2idx(w2v_model, tweet) for tweet in texts]
-
-    # TODO: Calculate the lengths of each element of texts_indx.
-    # The minimum length shall be 1, in order to avoid later problems when training the RNN
-    lengths: List[torch.Tensor] = [max(len(tweet), 1) for tweet in texts_indx]
-
-    # convert lengths to tensor
-    lengths = torch.tensor(lengths)
-
-    # TODO: Pad the text sequences to have uniform length
-    texts_padded: torch.Tensor = pad_sequence(texts_indx, batch_first=True)
-
-    # TODO: Convert labels to tensor
-    labels: torch.Tensor = torch.tensor(labels)
-
-    return texts_padded, labels, lengths
-
-
-def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
-    """
-    Converts a tweet to a list of word indices based on an embedding model.
-
-    This function iterates through each word in the tweet and retrieves its corresponding index
+    This function iterates through each word in the review and retrieves its corresponding index
     from the embedding model's vocabulary. If a word is not present in the model's vocabulary,
     it is skipped.
 
     Args:
         embedding_model (Any): The embedding model with a 'key_to_index' attribute, which maps words to their indices.
-        tweet (List[str]): A list of words representing the tweet.
+        review (List[str]): A list of words representing the tweet.
 
     Returns:
         torch.Tensor: A tensor of word indices corresponding to the words in the tweet.
     """
-    # TODO: Complete the function according to the requirements
-
-    # get the indices of the words in the tweet
     indices = [embedding_model.key_to_index[word]
-               for word in tweet if word in embedding_model.key_to_index]
+               for word in review if word in embedding_model.key_to_index]
 
     return torch.tensor(indices)
+
+
+def collate_fn(batch: List[Tuple[List[str], int]]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Collate function for the DataLoader.
+
+    Args:
+        batch (List[Tuple[List[str], int]]): A list of tuples containing the reviews and target labels.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: A tuple containing the reviews and target labels.
+            - texts_padded (torch.Tensor): A tensor of padded word indices of the text.
+            - labels (torch.Tensor): A tensor of target labels.
+            - lengths (torch.Tensor): A tensor of lengths of each review.
+    """
+
+    global w2v_model
+
+    # Sort the batch by the length of the reviews
+    batch = sorted(batch, key=lambda x: len(x[0]), reverse=True)
+
+    # Separate the reviews and target labels
+    texts: List[List[str]]
+    labels: List[int]
+    texts, labels = zip(*batch)
+
+    # Convert the reviews to bag of words representation
+    texts_idx: List[torch.Tensor] = [
+        word2idx(w2v_model, review) for review in texts]
+
+    lengths: List[torch.Tensor] = [max(len(text), 1) for text in texts_idx]
+
+    # Convert the lengths to a tensor
+    lengths: torch.Tensor = torch.tensor(lengths, dtype=torch.float32)
+
+    # Pad the reviews
+    texts_padded: torch.Tensor = pad_sequence(
+        texts_idx, batch_first=True)
+
+    # Convert the target labels to a tensor
+    labels: torch.Tensor = torch.tensor(labels, dtype=torch.float32)
+
+    return texts_padded, labels, lengths

@@ -2,13 +2,17 @@ import torch
 
 
 class RNNModel(torch.nn.Module):
-    def __init__(self, embedding_weights: torch.Tensor, hidden_size: int, num_layers: int) -> None:
+    def __init__(self,
+                 embedding_weights: torch.Tensor,
+                 hidden_size: int,
+                 num_layers: int
+                 ) -> None:
         """
         This method is the constructor of the class.
 
         Args:
             embedding_weights: weights for the embedding layer
-            hidden_size: hidden size of the RNN layers
+            hidden_size: size of the hidden state of the RNN
             num_layers: number of RNN layers
             device: device to run the model
         """
@@ -19,32 +23,33 @@ class RNNModel(torch.nn.Module):
 
         embedding_dim = embedding_weights.shape[1]
 
-        self.embedding = torch.nn.Embedding.from_pretrained(
+        self.embedding: torch.nn.Embedding = torch.nn.Embedding.from_pretrained(
             embedding_weights)
 
-        self.rnn = torch.nn.RNN(
+        self.rnn: torch.nn.RNN = torch.nn.RNN(
             embedding_dim, hidden_size, num_layers, batch_first=True)
 
-        self.fc = torch.nn.Linear(hidden_size, 1)
+        self.fc: torch.nn.Linear = torch.nn.Linear(hidden_size, 1)
 
     def forward(self, inputs: torch.Tensor, text_lengths: torch.Tensor) -> torch.Tensor:
         """
         This method is the forward pass of the model.
 
         Args:
-            inputs: inputs tensor. Dimensions: [batch, number of past days, 24].
+            inputs: inputs tensor. Dimensions: [batch, ].
+            text_lengths: lengths of the texts. Dimensions: [batch].
 
         Returns:
-            output tensor. Dimensions: [batch, 24].
+            output tensor. Dimensions: [batch, ].
         """
 
         embedded: torch.Tensor = self.embedding(inputs)
 
-        packed_embedded: torch.nn.utils.rnn.PackedSequence = torch.nn.utils.rnn.pack_padded_sequence(
+        packed_embedding: torch.nn.utils.rnn.PackedSequence = torch.nn.utils.rnn.pack_padded_sequence(
             embedded, text_lengths, batch_first=True, enforce_sorted=False)
 
-        packed_output, hidden = self.rnn(packed_embedded)
+        packed_output, hidden = self.rnn(packed_embedding)
 
-        hidden: torch.Tensor = hidden[-1]
+        last_hidden: torch.Tensor = hidden[-1]
 
-        return self.fc(hidden).squeeze(1)
+        return self.fc(last_hidden).squeeze(1)
