@@ -2,6 +2,8 @@
 import torch
 from torch.jit import RecursiveScriptModule
 from torch.utils.data import DataLoader
+# Import sigmoid function
+from torch.nn.functional import sigmoid
 from torch.nn.utils.rnn import pad_sequence
 from src.RNNModelTrain.data import tokenize_tweet
 from typing import List, Tuple, Any
@@ -97,12 +99,10 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
     return torch.tensor(indices)
    
-def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu') -> int:
+def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False) -> int:
     
     model.to(device)
     model.eval()
-    print(f"Tokenizing text: {text}")
-    print(f"Type: {type(text)}")
     tokenized_text = tokenize_tweet(text)
     
     # Collate the text
@@ -110,11 +110,22 @@ def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu') 
     tokenized_text = word2idx(w2v_model, tokenized_text)
     text_padded = pad_sequence([tokenized_text], batch_first=True)
     length = torch.tensor([len(tokenized_text)])
-    
+    if length == 0:
+        return 0
     #Send to device
     text_padded = text_padded.to(device)
-    
     prediction = model(text_padded, length)
-    prediction = (prediction > 0.5).item()
     
+    if probability:
+        return sigmoid(prediction).item()
+    
+    prediction = (prediction > 0.5).item()
     return 1 if prediction else 0
+
+def predict_multiple_text(
+    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False
+    ) -> List[int]:
+    
+    predictions = [predict_single_text(text, model, device, probability=probability) for text in texts]
+    
+    return predictions
