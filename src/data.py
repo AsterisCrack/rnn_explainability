@@ -200,6 +200,9 @@ def collate_fn(batch: List[Tuple[List[str], int]],
     # The minimum length shall be 1, in order to avoid later problems when training the RNN
     lengths: List[torch.Tensor] = [max(len(tweet), 1) for tweet in texts_indx]
 
+    # convert lengths to tensor
+    lengths = torch.tensor(lengths)
+
     # TODO: Pad the text sequences to have uniform length
     texts_padded: torch.Tensor = pad_sequence(texts_indx, batch_first=True)
 

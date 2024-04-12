@@ -143,3 +143,29 @@ def train_torch_model(
                 break
 
     return train_accuracies, val_accuracies
+
+
+def t_step(
+    model: torch.nn.Module,
+    test_dataloader: DataLoader,
+    device: str = 'cpu'
+) -> float:
+    """
+    Test the logistic regression model.
+
+    Args:
+        model (torch.nn.Module): An instance of the model to be tested.
+        test_dataloader (DataLoader): DataLoader for the test dataset.
+        device (str): device where to test the model.
+
+    Returns:
+        float: The accuracy of the model on the test dataset.
+    """
+
+    model.eval()
+
+    model.to(device)
+
+    test_accuracy = calculate_accuracy(model, test_dataloader, device=device)
+
+    return test_accuracy
