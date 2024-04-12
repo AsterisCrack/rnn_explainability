@@ -2,6 +2,8 @@
 import torch
 from torch.jit import RecursiveScriptModule
 from torch.utils.data import DataLoader
+from src.RNNModelTrain.data import tokenize_tweet
+import src.model_utils as model_utils
 
 import numpy as np
 import random
@@ -44,48 +46,11 @@ def save_model(model: torch.nn.Module, name: str) -> None:
 
 
 def load_model(name: str) -> RecursiveScriptModule:
-    """
-    This function is to load a model from the 'models' folder.
-
-    Args:
-        name: name of the model to load.
-
-    Returns:
-        model in torchscript.
-    """
-
-    # define model
-    model: RecursiveScriptModule = torch.jit.load(f"models/{name}.pt")
-
-    return model
+    return model_utils.load_model(name)
 
 
 def set_seed(seed: int) -> None:
-    """
-    This function sets a seed and ensure a deterministic behavior.
-
-    Args:
-        seed: seed number to fix radomness.
-    """
-
-    # set seed in numpy and random
-    np.random.seed(seed)
-    random.seed(seed)
-
-    # set seed and deterministic algorithms for torch
-    torch.manual_seed(seed)
-    torch.use_deterministic_algorithms(True, warn_only=True)
-
-    # Ensure all operations are deterministic on GPU
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    # for deterministic behavior on cuda >= 10.2
-    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-
-    return None
+    return model_utils.set_seed(seed)
 
 
 def calculate_accuracy(model: torch.nn.Module, dataloader: DataLoader, threshold: float = 0.5, device: str = 'cpu') -> float:
@@ -134,7 +99,6 @@ def calculate_accuracy(model: torch.nn.Module, dataloader: DataLoader, threshold
     accuracy = correct / len(dataloader.dataset)
 
     return accuracy
-
 
 def plot_accuracies(model: torch.nn.Module,
                     train_dataloader: DataLoader,
