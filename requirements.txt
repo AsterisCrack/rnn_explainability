@@ -6,4 +6,5 @@ pandas
 gensim
 gdown
 matplotlib
-scipy
+scipy==1.12
+lime
