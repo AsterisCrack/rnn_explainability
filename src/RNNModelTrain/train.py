@@ -16,13 +16,13 @@ set_seed(SEED)
 
 DATA_PATH: Final[str] = "./NLP_Data/data"
 
-batch_size: int = 64
-epochs: int = 40
-print_every: int = 5
-patience: int = 20
-learning_rate: float = 5e-4
+batch_size: int = 16
+epochs: int = 3
+print_every: int = 1
+patience: int = 5
+learning_rate: float = 1e-4
 hidden_dim: int = 256
-num_layers: int = 2
+num_layers: int = 1
 
 dataset_name: str = "IMDB"  # "TweepFake"  #
 
