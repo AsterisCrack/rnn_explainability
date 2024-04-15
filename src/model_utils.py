@@ -99,7 +99,8 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
     return torch.tensor(indices)
    
-def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False) -> int:
+   
+def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, likelihood = False) -> int:
     
     model.to(device)
     model.eval()
@@ -118,14 +119,15 @@ def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', 
     
     if probability:
         return sigmoid(prediction).item()
-    
+    if likelihood:
+        return prediction.item()
     prediction = (prediction > 0.5).item()
     return 1 if prediction else 0
 
 def predict_multiple_text(
-    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False
+    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, likelihood = False
     ) -> List[int]:
     
-    predictions = [predict_single_text(text, model, device, probability=probability) for text in texts]
+    predictions = [predict_single_text(text, model, device, probability=probability, likelihood=likelihood) for text in texts]
     
     return predictions
