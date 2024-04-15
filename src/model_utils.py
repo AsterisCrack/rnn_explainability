@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torch.nn.functional import sigmoid
 from torch.nn.utils.rnn import pad_sequence
 from src.RNNModelTrain.data import tokenize_tweet
+from src.RNNModelTrain.data import tokenize_sentence
 from typing import List, Tuple, Any
 
 from gensim.models.keyedvectors import load_word2vec_format
@@ -99,11 +100,16 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
     return torch.tensor(indices)
    
-def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False) -> int:
+def predict_single_text(
+    text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB"
+    ) -> int:
     
     model.to(device)
     model.eval()
-    tokenized_text = tokenize_tweet(text)
+    if model_type == "IMDB":
+        tokenized_text = tokenize_sentence(text)
+    else:
+        tokenized_text = tokenize_tweet(text)
     
     # Collate the text
     w2v_model = load_w2v_model()
@@ -123,9 +129,9 @@ def predict_single_text(text: str, model: torch.nn.Module, device: str = 'cpu', 
     return 1 if prediction else 0
 
 def predict_multiple_text(
-    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False
+    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB"
     ) -> List[int]:
     
-    predictions = [predict_single_text(text, model, device, probability=probability) for text in texts]
+    predictions = [predict_single_text(text, model, device, probability=probability, model_type=model_type) for text in texts]
     
     return predictions
