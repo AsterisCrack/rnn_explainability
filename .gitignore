@@ -1,4 +1,6 @@
 NLP_Data.zip
+**/[Tt]est.*
+
 __MACOSX/
 # Byte-compiled / optimized / DLL files
 __pycache__/
