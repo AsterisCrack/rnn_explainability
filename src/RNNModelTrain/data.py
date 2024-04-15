@@ -272,8 +272,8 @@ def word2idx(embedding_model, review: List[str]) -> torch.Tensor:
     Returns:
         torch.Tensor: A tensor of word indices corresponding to the words in the tweet.
     """
-    indices = [embedding_model.key_to_index[word]
-               for word in review if word in embedding_model.key_to_index]
+    indices = [embedding_model.key_to_index[word] if word in embedding_model.key_to_index else 0
+           for word in review]
 
     return torch.tensor(indices)
 
