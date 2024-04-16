@@ -10,3 +10,4 @@ scipy==1.12
 lime
 seaborn
 shap
+termcolor
