@@ -7,7 +7,7 @@ from torch.nn.functional import sigmoid
 from torch.nn.utils.rnn import pad_sequence
 from src.RNNModelTrain.data import tokenize_tweet
 from src.RNNModelTrain.data import tokenize_sentence
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Union
 
 from gensim.models.keyedvectors import load_word2vec_format
 
@@ -103,7 +103,7 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
    
 def predict_single_text(
     text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB"
-    , likelihood = False) -> int:
+    , likelihood = False) -> Union[float, int]:
     
     model.to(device)
     model.eval()
