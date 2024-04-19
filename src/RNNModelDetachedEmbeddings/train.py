@@ -16,6 +16,7 @@ set_seed(SEED)
 
 DATA_PATH: Final[str] = "./NLP_Data/data"
 
+# Model with test accuracy of 0.7728
 batch_size: int = 16
 epochs: int = 3
 print_every: int = 1
