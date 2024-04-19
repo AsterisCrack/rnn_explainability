@@ -188,6 +188,6 @@ def plot_accuracies(model: torch.nn.Module,
     # If figures/ folder does not exist, it will be created
     if not os.path.exists("figures"):
         os.makedirs("figures")
-        
+
     plt.savefig(f"figures/accuracy_evolution_{model_name}.png")
     plt.show()
