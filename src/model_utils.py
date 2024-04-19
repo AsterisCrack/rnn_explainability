@@ -104,10 +104,11 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
     return torch.tensor(indices)
 
-
 def predict_single_text(
         text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False) -> Union[float, int]:
-
+    
+    if type(device) == str:
+        device = torch.device(device)
     model.to(device)
     model.eval()
     if model_type == "IMDB":
@@ -137,7 +138,9 @@ def predict_single_text(
 def predict_multiple_text(
     texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False
 ) -> List[int]:
-
+    
+    if type(device) == str:
+        device = torch.device(device)
     predictions = [predict_single_text(text, model, device, probability=probability,
                                        model_type=model_type, likelihood=likelihood) for text in texts]
 
@@ -167,7 +170,10 @@ def predict_single_text_DE(text: str,
     Returns:
         int: The predicted sentiment of the text.
     """
-
+    
+    if type(device) == str:
+        device = torch.device(device)
+        
     model.to(device)
     model.eval()
     if model_type == "IMDB":
@@ -223,7 +229,10 @@ def predict_multiple_text_DE(texts: List[str],
         List[int]: _description_
     """
 
-    predictions = [predict_single_text(text, model, device, embedding, probability=probability,
+    if type(device) == str:
+        device = torch.device(device)
+        
+    predictions = [predict_single_text_DE(text, model, embedding, device, probability=probability,
                                        model_type=model_type, likelihood=likelihood) for text in texts]
 
     return predictions
