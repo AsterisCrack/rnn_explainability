@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 global w2v_model
 w2v_model = None
 
+
 def load_model(name: str) -> RecursiveScriptModule:
     """
     This function is to load a model from the 'models' folder.
@@ -34,6 +35,7 @@ def load_model(name: str) -> RecursiveScriptModule:
     model: RecursiveScriptModule = torch.jit.load(f"models/{name}.pt")
 
     return model
+
 
 def set_seed(seed: int) -> None:
     """
@@ -62,6 +64,7 @@ def set_seed(seed: int) -> None:
 
     return None
 
+
 def load_w2v_model() -> Any:
     """
     This function loads a pre-trained word2vec model from a given file path.
@@ -76,6 +79,7 @@ def load_w2v_model() -> Any:
         w2v_model = load_word2vec_format(
             "./NLP_Data/embeddings/GoogleNews-vectors-negative300.bin.gz", binary=True)
     return w2v_model
+
 
 def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
     """
@@ -99,19 +103,18 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
                for word in tweet if word in embedding_model.key_to_index]
 
     return torch.tensor(indices)
-   
-   
+
+
 def predict_single_text(
-    text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB"
-    , likelihood = False) -> Union[float, int]:
-    
+        text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False) -> Union[float, int]:
+
     model.to(device)
     model.eval()
     if model_type == "IMDB":
         tokenized_text = tokenize_sentence(text)
     else:
         tokenized_text = tokenize_tweet(text)
-    
+
     # Collate the text
     w2v_model = load_w2v_model()
     tokenized_text = word2idx(w2v_model, tokenized_text)
@@ -119,10 +122,10 @@ def predict_single_text(
     length = torch.tensor([len(tokenized_text)])
     if length == 0:
         return 0
-    #Send to device
+    # Send to device
     text_padded = text_padded.to(device)
     prediction = model(text_padded, length)
-    
+
     if probability:
         return sigmoid(prediction).item()
     if likelihood:
@@ -130,10 +133,97 @@ def predict_single_text(
     prediction = (prediction > 0.5).item()
     return 1 if prediction else 0
 
+
 def predict_multiple_text(
-    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood = False
-    ) -> List[int]:
-    
-    predictions = [predict_single_text(text, model, device, probability=probability, model_type=model_type, likelihood=likelihood) for text in texts]
-    
+    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False
+) -> List[int]:
+
+    predictions = [predict_single_text(text, model, device, probability=probability,
+                                       model_type=model_type, likelihood=likelihood) for text in texts]
+
+    return predictions
+
+
+def predict_single_text_DE(text: str,
+                           model: torch.nn.Module,
+                           embedding: torch.nn.Embedding,
+                           device: str = 'cpu',
+                           probability: bool = False,
+                           model_type: str = "IMDB",
+                           likelihood=False) -> int:
+    """
+    A function to predict the sentiment of a single text using a model without an 
+    internal embedding layer. 
+
+    Args:
+        text (str): The text to predict the sentiment for.
+        model (torch.nn.Module): The model used for prediction.
+        embedding (torch.nn.Embedding): The embedding layer to be applied to the input texts.
+        device (str): The device to run the model on.
+        probability (bool): Whether to return the probability of the prediction.
+        model_type (str): The type of model used for prediction.
+        likelihood (bool): Whether to return the likelihood of the prediction.
+
+    Returns:
+        int: The predicted sentiment of the text.
+    """
+
+    model.to(device)
+    model.eval()
+    if model_type == "IMDB":
+        tokenized_text = tokenize_sentence(text)
+    else:
+        tokenized_text = tokenize_tweet(text)
+
+    # Collate the text
+    w2v_model = load_w2v_model()
+    tokenized_text = word2idx(w2v_model, tokenized_text)
+    text_padded = pad_sequence([tokenized_text], batch_first=True)
+    length = torch.tensor([len(tokenized_text)])
+    if length == 0:
+        return 0
+    # Send to device
+    text_padded = text_padded.to(device)
+    embedding.to(device)
+
+    # embed the text
+    embedded_text = embedding(text_padded)
+
+    prediction = model(embedded_text, length)
+
+    if probability:
+        return sigmoid(prediction).item()
+    if likelihood:
+        return prediction.item()
+    prediction = (prediction > 0.5).item()
+    return 1 if prediction else 0
+
+
+def predict_multiple_text_DE(texts: List[str],
+                             model: torch.nn.Module,
+                             embedding: torch.nn.Embedding,
+                             device: str = 'cpu',
+                             probability: bool = False,
+                             model_type: str = "IMDB",
+                             likelihood=False) -> List[int]:
+    """
+    A function to predict the sentiment of multiple texts using a model without an
+    internal embedding layer.
+
+    Args:
+        texts (List[str]): The list of texts to predict the sentiment for.
+        model (torch.nn.Module): The model used for prediction.
+        embedding (torch.nn.Embedding): The embedding layer to be applied to the input texts.
+        device (str, optional): Device to be used for the task. Defaults to 'cpu'.
+        probability (bool, optional): If True, returns the probability of the prediction. Defaults to False.
+        model_type (str, optional): Database that the model will predicting on. Defaults to "IMDB".
+        likelihood (bool, optional): . Defaults to False.
+
+    Returns:
+        List[int]: _description_
+    """
+
+    predictions = [predict_single_text(text, model, device, embedding, probability=probability,
+                                       model_type=model_type, likelihood=likelihood) for text in texts]
+
     return predictions
