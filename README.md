@@ -25,7 +25,6 @@ We separated the explainability techniques into two categories: model-specific a
 
 ### Model-Specific Techniques
 - Integrated Gradients
-- Smooth Gradients
 - Sailency Maps
 
 ## Getting Started
