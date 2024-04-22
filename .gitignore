@@ -1,5 +1,6 @@
 NLP_Data.zip
-**/[Tt]est.*
+**/[Tt]est.py
+**/[Tt]est.ipynb
 
 __MACOSX/
 # Byte-compiled / optimized / DLL files
@@ -160,7 +161,9 @@ cython_debug/
 models/
 
 # NLP_data/ folder
-NLP_Data/
+NLP_Data/data/*.csv
+NLP_Data/embeddings
+NLP_Data/.DS_store
 
 # runs/ folder
 runs/
