@@ -8,9 +8,6 @@ import re
 
 import string
 
-import pandas as pd
-
-
 from typing import List, Tuple
 
 
@@ -41,29 +38,6 @@ def tokenize_sentence(input_string: str) -> List[str]:
     return list(filter(lambda x: len(x) > 0, input_string.split(" ")))
 
 
-def tokenize_tweet(tweet: str) -> List[str]:
-    """
-    Tokenizes a given tweet by splitting the text into words, and doing any cleaning, replacing or normalization deemed useful
-
-    Args:
-        tweet (str): The tweet text to be tokenized.
-
-    Returns:
-        List[str]: A list of strings, representing the tokenized components of the tweet.
-    """
-    USR_MENTION_TOKEN = "<!USR_MENTION>"
-    URL_TOKEN = "<!URL>"
-    tweet = re.sub(r'@\w+', USR_MENTION_TOKEN, tweet)
-
-    # replace the urls with a specific token
-    tweet = re.sub(r'http\S+', URL_TOKEN, tweet)
-
-    # remove the hashtags from the tweet
-    tweet = re.sub(r'#\w+', '', tweet)
-
-    return tweet.split()
-
-
 def generate_review_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
     """
     Generate a list of tokenized reviews and a list of target labels from the given file.
@@ -90,36 +64,6 @@ def generate_review_text_target_pairs(file_path: str) -> Tuple[List[List[str]], 
             texts.append(sentence)
 
     return texts, targets
-
-
-def generate_tweet_text_target_pairs(file_path: str) -> Tuple[List[List[str]], List[int]]:
-    """
-    Load data from a specified file path, extract texts and targets, and tokenize the texts using the tokenize_tweet function.
-
-    Parameters:
-    file_path (str): The path to the dataset file.
-
-    Returns:
-    Tuple[List[str], List[int]]: Lists of texts and corresponding targets.
-    """
-    try:
-        # TODO: Read the corresponding csv
-        data: pd.DataFrame = pd.read_csv(file_path)
-
-        # TODO: Obtain the text column from data
-        texts: List[str] = data['text'].tolist()
-
-        # TODO: Obtain targets, 0 for human and 1 for bot
-        # replace the target column with a binary representation
-        data['tag'] = data['account.type'].replace('human', 0)
-        data['tag'] = data['tag'].replace('bot', 1)
-        targets: List[int] = data['tag'].tolist()
-
-        # TODO: Return tokenized texts, and targets
-        return [tokenize_tweet(text) for text in texts], targets
-
-    except FileNotFoundError:
-        print(f"{file_path} not found. Please check the file path.")
 
 
 class TextClassificationDataset(Dataset):
@@ -167,46 +111,31 @@ class TextClassificationDataset(Dataset):
 
 
 def generate_datasets(
-    save_path: str = "./NLP_Data/data",
-    dataset_name: str = "IMDB"
+    save_path: str = "./NLP_Data/data"
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Generate the training, validation, and test datasets for the specified dataset.
 
     Args:
-        dataset_name (str, optional): Database name. Defaults to "IMDB".
-            * "IMDB": IMDB movie review dataset.
-            * "TweepFake": TweepFake dataset.
+        save_path (str): The path to save the dataset.
 
     Returns:
         Tuple[Dataset, Dataset, Dataset]: train, validation and test datasets.
     """
-    if not dataset_name in ["IMDB", "TweepFake"]:
-        raise ValueError(
-            "Invalid dataset name. Please choose from 'IMDB' or 'TweepFake'.")
 
-    if dataset_name == "IMDB":
-        train_val_texts, train_val_targets = generate_review_text_target_pairs(
-            save_path + "/train.txt")
+    train_val_texts, train_val_targets = generate_review_text_target_pairs(
+        save_path + "/train.txt")
 
-        split_point = int(len(train_val_texts) * 0.8)
+    split_point = int(len(train_val_texts) * 0.8)
 
-        # Split the training set into training and validation sets
-        train_texts, val_texts = train_val_texts[:
-                                                 split_point], train_val_texts[split_point:]
-        train_targets, val_targets = train_val_targets[:
-                                                       split_point], train_val_targets[split_point:]
+    # Split the training set into training and validation sets
+    train_texts, val_texts = train_val_texts[:
+                                             split_point], train_val_texts[split_point:]
+    train_targets, val_targets = train_val_targets[:
+                                                   split_point], train_val_targets[split_point:]
 
-        test_texts, test_targets = generate_review_text_target_pairs(
-            save_path + "/test.txt")
-
-    if dataset_name == "TweepFake":
-        train_texts, train_targets = generate_tweet_text_target_pairs(
-            save_path + "/train.csv")
-        val_texts, val_targets = generate_tweet_text_target_pairs(
-            save_path + "/validation.csv")
-        test_texts, test_targets = generate_tweet_text_target_pairs(
-            save_path + "/test.csv")
+    test_texts, test_targets = generate_review_text_target_pairs(
+        save_path + "/test.txt")
 
     # create the datasets
     train_dataset = TextClassificationDataset(train_texts, train_targets)
@@ -218,7 +147,6 @@ def generate_datasets(
 
 def load_data(
     save_path: str = "./NLP_Data/data",
-    dataset_name: str = "IMDB",
     batch_size: int = 64
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
@@ -239,7 +167,7 @@ def load_data(
         train_dataset,
         val_dataset,
         test_dataset
-    ) = generate_datasets(save_path=save_path, dataset_name=dataset_name)
+    ) = generate_datasets(save_path=save_path)
 
     # load the embeddings
     global w2v_model

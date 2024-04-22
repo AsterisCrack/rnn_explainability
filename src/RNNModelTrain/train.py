@@ -24,15 +24,12 @@ learning_rate: float = 1e-4
 hidden_dim: int = 256
 num_layers: int = 1
 
-dataset_name: str = "IMDB"  # "TweepFake"  #
-
-model_name = f"{dataset_name}_rnn_hidden_{hidden_dim}_lr_{learning_rate}_epochs_{epochs}" + \
+model_name = f"rnn_hidden_{hidden_dim}_lr_{learning_rate}_epochs_{epochs}" + \
     f"_batch_{batch_size}_patience_{patience}"
 
 # TODO: Check if GPU is available and move the model to GPU
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Training on {device}")
-print(f"Training on dataset: {dataset_name}")
 
 
 def main() -> None:
@@ -49,7 +46,7 @@ def main() -> None:
         train_dataloader,
         val_dataloader,
         test_dataloader
-    ) = load_data(save_path=DATA_PATH, dataset_name=dataset_name, batch_size=batch_size)
+    ) = load_data(save_path=DATA_PATH, batch_size=batch_size)
 
     print("Loading embeddings...")
     w2v_model = load_word2vec_format(
@@ -94,7 +91,7 @@ def main() -> None:
 
     print("Saving model...")
     # save the model
-    save_model(model, f"{dataset_name}_best_model")
+    save_model(model, f"best_model")
     save_model(model, model_name)
 
     print("Plotting accuracies...")

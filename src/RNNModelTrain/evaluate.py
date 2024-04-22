@@ -14,15 +14,11 @@ set_seed(SEED)
 
 DATA_PATH: Final[str] = "./NLP_Data/data"
 
-dataset_name: str = "IMDB"  # "TweepFake"  #
-
-print(f"Testing on dataset: {dataset_name}")
-
 
 def main() -> None:
     # load model
     print("Loading model...")
-    model = load_model(f"{dataset_name}_best_model")
+    model = load_model(f"best_model")
 
     # load the data
     print("Loading data...")
@@ -31,7 +27,7 @@ def main() -> None:
         val_dataloader,
         test_dataloader
     ) = load_data(
-        save_path=DATA_PATH, dataset_name=dataset_name)
+        save_path=DATA_PATH)
 
     # perform testing
     print("Testing model...")

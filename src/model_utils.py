@@ -1,20 +1,17 @@
 # import necessary dependencies
 import torch
 from torch.jit import RecursiveScriptModule
-from torch.utils.data import DataLoader
 # Import sigmoid function
 from torch.nn.functional import sigmoid
 from torch.nn.utils.rnn import pad_sequence
-from src.RNNModelTrain.data import tokenize_tweet
 from src.RNNModelTrain.data import tokenize_sentence
-from typing import List, Tuple, Any, Union
+from typing import List, Any, Union
 
 from gensim.models.keyedvectors import load_word2vec_format
 
 import numpy as np
 import random
 import os
-import matplotlib.pyplot as plt
 
 global w2v_model
 w2v_model = None
@@ -81,7 +78,7 @@ def load_w2v_model() -> Any:
     return w2v_model
 
 
-def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
+def word2idx(embedding_model: Any, text: List[str]) -> torch.Tensor:
     """
     Converts a tweet to a list of word indices based on an embedding model.
 
@@ -100,21 +97,21 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
     # get the indices of the words in the tweet
     indices = [embedding_model.key_to_index[word]
-               for word in tweet if word in embedding_model.key_to_index]
+               for word in text if word in embedding_model.key_to_index]
 
     return torch.tensor(indices)
 
+
 def predict_single_text(
-        text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False) -> Union[float, int]:
-    
+        text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, likelihood=False) -> Union[float, int]:
+
     if type(device) == str:
         device = torch.device(device)
+
     model.to(device)
     model.eval()
-    if model_type == "IMDB":
-        tokenized_text = tokenize_sentence(text)
-    else:
-        tokenized_text = tokenize_tweet(text)
+
+    tokenized_text = tokenize_sentence(text)
 
     # Collate the text
     w2v_model = load_w2v_model()
@@ -136,13 +133,13 @@ def predict_single_text(
 
 
 def predict_multiple_text(
-    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False
+    texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, likelihood=False
 ) -> List[int]:
-    
+
     if type(device) == str:
         device = torch.device(device)
     predictions = [predict_single_text(text, model, device, probability=probability,
-                                       model_type=model_type, likelihood=likelihood) for text in texts]
+                                       likelihood=likelihood) for text in texts]
 
     return predictions
 
@@ -152,7 +149,6 @@ def predict_single_text_DE(text: str,
                            embedding: torch.nn.Embedding,
                            device: str = 'cpu',
                            probability: bool = False,
-                           model_type: str = "IMDB",
                            likelihood=False) -> int:
     """
     A function to predict the sentiment of a single text using a model without an 
@@ -170,16 +166,16 @@ def predict_single_text_DE(text: str,
     Returns:
         int: The predicted sentiment of the text.
     """
-    
+
     if type(device) == str:
         device = torch.device(device)
-        
+
+    # Set the model to evaluation mode and send it to the device
     model.to(device)
     model.eval()
-    if model_type == "IMDB":
-        tokenized_text = tokenize_sentence(text)
-    else:
-        tokenized_text = tokenize_tweet(text)
+
+    # Tokenize the text
+    tokenized_text = tokenize_sentence(text)
 
     # Collate the text
     w2v_model = load_w2v_model()
@@ -210,7 +206,6 @@ def predict_multiple_text_DE(texts: List[str],
                              embedding: torch.nn.Embedding,
                              device: str = 'cpu',
                              probability: bool = False,
-                             model_type: str = "IMDB",
                              likelihood=False) -> List[int]:
     """
     A function to predict the sentiment of multiple texts using a model without an
@@ -231,8 +226,8 @@ def predict_multiple_text_DE(texts: List[str],
 
     if type(device) == str:
         device = torch.device(device)
-        
+
     predictions = [predict_single_text_DE(text, model, embedding, device, probability=probability,
-                                       model_type=model_type, likelihood=likelihood) for text in texts]
+                                          likelihood=likelihood) for text in texts]
 
     return predictions
