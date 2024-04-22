@@ -1,8 +1,6 @@
 # import necessary dependencies
 import torch
 from torch.jit import RecursiveScriptModule
-from torch.utils.data import DataLoader
-# Import sigmoid function
 from torch.nn.functional import sigmoid
 from torch.nn.utils.rnn import pad_sequence
 from src.RNNModelTrain.data import tokenize_tweet
@@ -14,7 +12,6 @@ from gensim.models.keyedvectors import load_word2vec_format
 import numpy as np
 import random
 import os
-import matplotlib.pyplot as plt
 
 global w2v_model
 w2v_model = None
@@ -96,8 +93,7 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
     Returns:
         torch.Tensor: A tensor of word indices corresponding to the words in the tweet.
     """
-    # TODO: Complete the function according to the requirements
-
+    
     # get the indices of the words in the tweet
     indices = [embedding_model.key_to_index[word]
                for word in tweet if word in embedding_model.key_to_index]
@@ -106,6 +102,22 @@ def word2idx(embedding_model: Any, tweet: List[str]) -> torch.Tensor:
 
 def predict_single_text(
         text: str, model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False) -> Union[float, int]:
+    """
+    A function to predict the sentiment of a single text using a model.
+    
+    Args:
+        text (str): The text to predict the sentiment for.
+        model (torch.nn.Module): The model used for prediction.
+        device (str): The device to run the model on.
+        probability (bool): Whether to return the probability of the prediction.
+        model_type (str): The type of model used for prediction.
+        likelihood (bool): Whether to return the likelihood of the prediction.
+        
+    Returns:
+        int: The predicted sentiment of the text. 
+        OR float: The probability of the prediction. 
+        OR float: The likelihood of the prediction.
+    """
     
     if type(device) == str:
         device = torch.device(device)
@@ -137,7 +149,23 @@ def predict_single_text(
 
 def predict_multiple_text(
     texts: List[str], model: torch.nn.Module, device: str = 'cpu', probability: bool = False, model_type: str = "IMDB", likelihood=False
-) -> List[int]:
+) -> List[Union[float, int]]:
+    """
+    A function to predict the sentiment of a multiple texts using a model.
+    
+    Args:
+        text (str): The text to predict the sentiment for.
+        model (torch.nn.Module): The model used for prediction.
+        device (str): The device to run the model on.
+        probability (bool): Whether to return the probability of the prediction.
+        model_type (str): The type of model used for prediction.
+        likelihood (bool): Whether to return the likelihood of the prediction.
+        
+    Returns:
+        int: The predicted sentiment of the text. 
+        OR float: The probability of the prediction. 
+        OR float: The likelihood of the prediction.
+    """
     
     if type(device) == str:
         device = torch.device(device)
