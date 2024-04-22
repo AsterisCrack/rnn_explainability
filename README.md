@@ -43,10 +43,21 @@ cd rnn_explainability
 python3 -m venv env
 
 # Activate the virtual environment
+#Linux/Mac
 source env/bin/activate
+#Windows
+env\Scripts\activate
 
 # Install the required dependencies
 pip install -r requirements.txt
+```
+
+If you have a CUDA-enabled GPU, we strongly recommend installing the GPU version of PyTorch for faster training times. You can do this by following the official PyTorch installation guide here: https://pytorch.org/get-started/locally/
+
+You can test if PyTorch is installed correctly by running the following command:
+
+```bash
+python -m src.torch_test
 ```
 
 Once you've installed the dependencies, you need to download the dataset used in this project. You can do this by running the following command:
